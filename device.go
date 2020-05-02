@@ -8,6 +8,8 @@ import (
 //	DeviceInformationProvider contains the controls to query a roku device
 type DeviceInformationProvider interface {
 	GetDeviceInformation() (*DeviceInfo, error)
+	GetActiveApp() (*ActiveAppInfo, error)
+	GetInstalledApps() ([]*AppInfo, error)
 }
 
 //	Device is a structure which contains information about a roku device.
@@ -89,7 +91,26 @@ type DeviceInfo struct {
 	CanUseWifiExtender          bool   `xml:"can-use-wifi-extender"`
 }
 
-// GetDeviceInformation
+// ActiveAppInfo is a wrapper around a single application information structure
+type ActiveAppInfo struct {
+	App AppInfo `xml:"app"`
+}
+
+//	AppInfo holds information about applications
+type AppInfo struct {
+	Id      string `xml:"id,attr"`
+	Subtype string `xml:"subtype,attr"`
+	Type    string `xml:"type,attr"`
+	Version string `xml:"version,attr"`
+	Name    string `xml:",chardata"`
+}
+
+// InstalledAppsList holds information about all applications installed on a roku device
+type InstalledAppsList struct {
+	Apps    []AppInfo `xml:"app"`
+}
+
+// GetDeviceInformation retrieves information about a connected roku device.
 func (d *Device) GetDeviceInformation() (*DeviceInfo, error) {
 	resp, err := d.client.Get(d.URL + "/query/device-info")
 	if err != nil {
@@ -99,6 +120,40 @@ func (d *Device) GetDeviceInformation() (*DeviceInfo, error) {
 	defer resp.Body.Close()
 
 	var info DeviceInfo
+	if err := xml.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, err
+	}
+
+	return &info, nil
+}
+
+// GetActiveApp retrieves information about the currently active app on a connected roku device
+func (d *Device) GetActiveApp() (*ActiveAppInfo, error) {
+	resp, err := d.client.Get(d.URL + "/query/active-app")
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var info ActiveAppInfo
+	if err := xml.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, err
+	}
+
+	return &info, nil
+}
+
+// GetInstalledApps retrieves a list of the installed apps on a roku device.
+func (d *Device) GetInstalledApps() (*InstalledAppsList, error) {
+	resp, err := d.client.Get(d.URL + "/query/apps")
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var info InstalledAppsList
 	if err := xml.NewDecoder(resp.Body).Decode(&info); err != nil {
 		return nil, err
 	}
